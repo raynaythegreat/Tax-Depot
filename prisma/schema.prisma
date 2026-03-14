@@ -1,0 +1,285 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  password      String
+  name          String?
+  businessName  String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  clients         Client[]
+  documents       Document[]
+  transactions    Transaction[]
+  accounts        Account[]
+  categories      Category[]
+  aiSettings      AISettings?
+  businessProfile BusinessProfile?
+  invoices        Invoice[]
+}
+
+model Client {
+  id          String   @id @default(uuid())
+  userId      String
+  name        String
+  email       String?
+  phone       String?
+  address     String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  user         User          @relation(fields: [userId], references: [id])
+  taxYears     TaxYear[]
+  documents    Document[]
+  transactions Transaction[]
+  accounts     Account[]
+  invoices     Invoice[]
+  
+  @@index([userId])
+}
+
+model TaxYear {
+  id          String   @id @default(uuid())
+  clientId    String
+  year        Int
+  status      String   @default("pending")
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  client      Client     @relation(fields: [clientId], references: [id])
+  documents   Document[]
+  
+  @@unique([clientId, year])
+  @@index([clientId])
+}
+
+model Account {
+  id            String   @id @default(uuid())
+  userId        String
+  clientId      String?
+  name          String
+  type          String
+  institution   String?
+  accountNumber String?
+  balance       Float    @default(0)
+  currency      String   @default("USD")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  user          User          @relation(fields: [userId], references: [id])
+  client        Client?       @relation(fields: [clientId], references: [id])
+  transactions  Transaction[]
+  
+  @@index([userId])
+  @@index([clientId])
+}
+
+model Category {
+  id        String   @id @default(uuid())
+  userId    String
+  name      String
+  type      String
+  color     String?
+  icon      String?
+  aiPrompt  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user        User          @relation(fields: [userId], references: [id])
+  transactions Transaction[]
+  
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+model Document {
+  id            String    @id @default(uuid())
+  userId        String
+  clientId      String?
+  taxYearId     String?
+  filename      String
+  originalName  String
+  mimeType      String
+  size          Int
+  path          String
+  type          String    @default("other")
+  status        String    @default("pending")
+  extractedText String?
+  confidence    Float?
+  aiAnalysis    String?
+  processedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  user          User          @relation(fields: [userId], references: [id])
+  client        Client?       @relation(fields: [clientId], references: [id])
+  taxYear       TaxYear?      @relation(fields: [taxYearId], references: [id])
+  transactions  Transaction[]
+  
+  @@index([userId])
+  @@index([clientId])
+  @@index([taxYearId])
+  @@index([status])
+}
+
+model Transaction {
+  id               String    @id @default(uuid())
+  userId           String
+  clientId         String?
+  accountId        String?
+  categoryId       String?
+  documentId       String?
+  date             DateTime
+  amount           Float
+  type             String    @default("expense")
+  description      String
+  payee            String?
+  reference        String?
+  notes            String?
+  aiCategory       String?
+  aiConfidence     Float?
+  isReconciled     Boolean   @default(false)
+  reconciledWithId String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  
+  user         User          @relation(fields: [userId], references: [id])
+  client       Client?       @relation(fields: [clientId], references: [id])
+  account      Account?       @relation(fields: [accountId], references: [id])
+  category     Category?      @relation(fields: [categoryId], references: [id])
+  document     Document?      @relation(fields: [documentId], references: [id])
+  
+  @@index([userId])
+  @@index([clientId])
+  @@index([date])
+  @@index([type])
+  @@index([categoryId])
+  @@index([accountId])
+  @@index([isReconciled])
+}
+
+model Report {
+  id        String   @id @default(uuid())
+  userId    String
+  clientId  String?
+  name      String
+  type      String
+  startDate DateTime
+  endDate   DateTime
+  data      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([userId])
+  @@index([clientId])
+  @@index([type])
+}
+
+model AISettings {
+  id               String   @id @default(uuid())
+  userId           String   @unique
+  provider         String   @default("ollama")
+  modelName        String   @default("llama3.2")
+  apiUrl           String   @default("http://localhost:11434")
+  enabled          Boolean  @default(true)
+  autoCategorize   Boolean  @default(true)
+  autoParse        Boolean  @default(true)
+  autoReconcile    Boolean  @default(false)
+  generateInsights Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  user  User @relation(fields: [userId], references: [id])
+}
+
+model BusinessProfile {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  businessName    String
+  legalName       String?
+  taxId           String?
+  email           String?
+  phone           String?
+  website         String?
+  address         String?
+  city            String?
+  state           String?
+  zipCode         String?
+  country         String?
+  logo            String?
+  bankName        String?
+  bankAccount     String?
+  bankRouting     String?
+  paymentTerms    String?
+  invoicePrefix   String   @default("INV")
+  invoiceNumber   Int      @default(1000)
+  receiptPrefix   String   @default("RCP")
+  receiptNumber   Int      @default(1000)
+  defaultCurrency String   @default("USD")
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  user     User      @relation(fields: [userId], references: [id])
+  invoices Invoice[]
+  
+  @@index([userId])
+}
+
+model Invoice {
+  id              String   @id @default(uuid())
+  userId          String
+  clientId        String?
+  businessProfileId String
+  invoiceNumber   String
+  type            String   @default("invoice")
+  status          String   @default("draft")
+  issueDate       DateTime @default(now())
+  dueDate         DateTime?
+  subtotal        Float    @default(0)
+  taxRate         Float    @default(0)
+  taxAmount       Float    @default(0)
+  total           Float    @default(0)
+  currency        String   @default("USD")
+  notes           String?
+  terms           String?
+  paidAt          DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  user            User            @relation(fields: [userId], references: [id])
+  client          Client?         @relation(fields: [clientId], references: [id])
+  businessProfile BusinessProfile @relation(fields: [businessProfileId], references: [id])
+  items           InvoiceItem[]
+  
+  @@unique([userId, invoiceNumber])
+  @@index([userId])
+  @@index([clientId])
+  @@index([status])
+}
+
+model InvoiceItem {
+  id          String   @id @default(uuid())
+  invoiceId   String
+  description String
+  quantity    Float    @default(1)
+  unitPrice   Float    @default(0)
+  total       Float    @default(0)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
+  
+  @@index([invoiceId])
+}
